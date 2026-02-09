@@ -152,21 +152,26 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch(url, {
-        method: method.toUpperCase(),
-        headers,
-        body: ['get', 'head'].includes(method.toLowerCase())
-          ? undefined
-          : JSON.stringify(bodyObject)
+      // Use local proxy to avoid CORS issues
+      const proxyRes = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          method: method.toUpperCase(),
+          headers,
+          body: ['get', 'head'].includes(method.toLowerCase()) ? undefined : bodyObject
+        })
       });
 
-      const data = await res.json().catch(() => null);
+      const res = await proxyRes.json();
 
       updateActiveTab({
         response: {
           status: res.status,
           statusText: res.statusText,
-          body: data
+          body: res.body,
+          error: res.error
         }
       });
     } catch (err) {
