@@ -187,7 +187,7 @@ export default function Home() {
   const exampleResponse = activeOperation?.responses?.['200']?.content?.['application/json']?.example;
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-950 text-neutral-200 overflow-hidden font-sans">
+    <div className="flex flex-col h-full bg-neutral-950 text-neutral-200 overflow-hidden font-sans">
       {/* Header */}
       <header className="h-12 border-b border-neutral-800 bg-neutral-900 flex items-center justify-between px-4 shrink-0">
         <div className="flex items-center gap-2">
@@ -212,6 +212,7 @@ export default function Home() {
           minSize={15}
           maxSize={40}
           storageKey="sidebar-width"
+          className="h-full w-full"
         >
           {/* Sidebar */}
           <Sidebar
@@ -249,6 +250,7 @@ export default function Home() {
                     minSize={30}
                     maxSize={70}
                     storageKey="request-response-split"
+                    className="h-full w-full"
                   >
                     {/* Request Panel */}
                     <RequestPanel
