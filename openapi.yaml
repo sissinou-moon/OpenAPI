@@ -1,13 +1,12 @@
-
-export const SAMPLE_YAML = `openapi: 3.0.3
+openapi: 3.0.3
 info:
   title: Authentication API
   description: API for user registration, login, OTP, and session management.
   version: 1.0.0
 
 servers:
-  - url: /auth
-    description: Auth Route Root
+  - url: http://localhost:3000/api
+    description: Route Root
 
 tags:
   - name: Authentication
@@ -187,5 +186,3 @@ paths:
           description: Refresh token is valid
         '500':
           description: Refresh token is invalid or expired
-`;
-

@@ -7,6 +7,7 @@ export interface OpenAPISpec {
         version: string;
     };
     servers: { url: string; description?: string }[];
+    tags?: { name: string; description?: string }[];
     paths: Record<string, PathItem>;
     components?: {
         schemas?: Record<string, Schema>;
