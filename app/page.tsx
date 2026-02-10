@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { ResizablePanel } from '@/components/resizable-panel';
 import { Sidebar } from '@/components/sidebar';
 import { TabBar, Tab } from '@/components/tab-bar';
@@ -440,10 +441,15 @@ export default function Home() {
                 /* ─── Database View ─── */
                 <div className="flex-1 flex flex-col overflow-hidden">
                   {/* Database Toolbar */}
-                  <div className="h-10 border-b border-neutral-800 bg-neutral-900/50 flex items-center px-4 gap-4">
+                  <div className="flex border-b border-neutral-800 bg-neutral-900/50">
                     <button
                       onClick={() => updateActiveTab({ dbViewMode: 'structure' })}
-                      className={`text-xs font-medium px-2 py-1 rounded transition-colors ${activeTabState.dbViewMode !== 'data' && activeTabState.dbViewMode !== 'relations' ? 'text-emerald-400 bg-emerald-500/10' : 'text-neutral-400 hover:text-neutral-200'}`}
+                      className={cn(
+                        "px-4 py-2 text-xs font-medium transition-colors",
+                        activeTabState.dbViewMode !== 'data' && activeTabState.dbViewMode !== 'relations'
+                          ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30"
+                          : "text-neutral-500 hover:text-neutral-300"
+                      )}
                     >
                       Structure
                     </button>
@@ -454,13 +460,23 @@ export default function Home() {
                           fetchTableData(activeTabState.tab.tableName);
                         }
                       }}
-                      className={`text-xs font-medium px-2 py-1 rounded transition-colors ${activeTabState.dbViewMode === 'data' ? 'text-emerald-400 bg-emerald-500/10' : 'text-neutral-400 hover:text-neutral-200'}`}
+                      className={cn(
+                        "px-4 py-2 text-xs font-medium transition-colors",
+                        activeTabState.dbViewMode === 'data'
+                          ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30"
+                          : "text-neutral-500 hover:text-neutral-300"
+                      )}
                     >
                       Data
                     </button>
                     <button
                       onClick={() => updateActiveTab({ dbViewMode: 'relations' })}
-                      className={`text-xs font-medium px-2 py-1 rounded transition-colors ${activeTabState.dbViewMode === 'relations' ? 'text-emerald-400 bg-emerald-500/10' : 'text-neutral-400 hover:text-neutral-200'}`}
+                      className={cn(
+                        "px-4 py-2 text-xs font-medium transition-colors",
+                        activeTabState.dbViewMode === 'relations'
+                          ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-950/30"
+                          : "text-neutral-500 hover:text-neutral-300"
+                      )}
                     >
                       Relations
                     </button>
