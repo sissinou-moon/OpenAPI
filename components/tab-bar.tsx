@@ -2,13 +2,17 @@
 
 import { cn } from '@/lib/utils';
 import { MethodBadge } from '@/components/method-badge';
-import { X } from 'lucide-react';
+import { X, Table2 } from 'lucide-react';
 
 export interface Tab {
     id: string;
-    path: string;
-    method: string;
-    summary?: string;
+    type: 'api' | 'database';
+    label: string;
+    // API specific
+    path?: string;
+    method?: string;
+    // Database specific
+    tableName?: string;
 }
 
 interface TabBarProps {
@@ -23,7 +27,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, className }
     if (tabs.length === 0) {
         return (
             <div className={cn("h-10 bg-neutral-900 border-b border-neutral-800 flex items-center px-4", className)}>
-                <span className="text-xs text-neutral-500">No routes open</span>
+                <span className="text-xs text-neutral-500">No items open</span>
             </div>
         );
     }
@@ -43,8 +47,13 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab, className }
                         )}
                         onClick={() => onSelectTab(tab.id)}
                     >
-                        <MethodBadge method={tab.method} className="text-[9px] px-1 py-0.5" />
-                        <span className="text-xs truncate">{tab.summary || tab.path}</span>
+                        {tab.type === 'api' && tab.method && (
+                            <MethodBadge method={tab.method} className="text-[9px] px-1 py-0.5" />
+                        )}
+                        {tab.type === 'database' && (
+                            <Table2 size={12} className="text-blue-400" />
+                        )}
+                        <span className="text-xs truncate">{tab.label}</span>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
