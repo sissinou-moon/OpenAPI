@@ -361,6 +361,61 @@ export default function Home() {
     }
   }, [connection, activeTabState, dbSchema, fetchTableData]);
 
+  const handleDeleteRows = useCallback(async (rows: any[]) => {
+    if (!connection || !activeTabState?.tab.tableName || rows.length === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${rows.length} row(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    const tableName = activeTabState.tab.tableName;
+    const tableDef = dbSchema?.tables[tableName];
+
+    // Find primary key
+    let primaryKey = '';
+    if (tableDef) {
+      for (const [colName, colDef] of Object.entries(tableDef.columns)) {
+        if (colDef.primary_key) {
+          primaryKey = colName;
+          break;
+        }
+      }
+    }
+
+    if (!primaryKey) {
+      const firstRow = rows[0];
+      if (firstRow._id !== undefined) primaryKey = '_id';
+      else if (firstRow.id !== undefined) primaryKey = 'id';
+      else if (firstRow.uuid !== undefined) primaryKey = 'uuid';
+      else primaryKey = Object.keys(firstRow)[0];
+    }
+
+    const primaryKeyValues = rows.map(r => r[primaryKey]);
+
+    try {
+      const res = await fetch('/api/db-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connection,
+          tableName,
+          primaryKey,
+          primaryKeyValues,
+        }),
+      });
+
+      const result = await res.json();
+      if (result.error) {
+        alert('Deletion error: ' + result.error);
+      } else {
+        // Refresh data
+        fetchTableData(tableName, activeTabState.queryResult?.page || 1);
+      }
+    } catch (err) {
+      console.error('Deletion fetch error:', err);
+    }
+  }, [connection, activeTabState, dbSchema, fetchTableData]);
+
   // Derived state for rendering
   const activeOperation = activeTabState && spec && activeTabState.tab.type === 'api' && activeTabState.tab.path && activeTabState.tab.method
     ? spec.paths[activeTabState.tab.path]?.[activeTabState.tab.method] as Operation | undefined
@@ -553,6 +608,7 @@ export default function Home() {
                             activeTabState.tab.tableName && fetchTableData(activeTabState.tab.tableName, page)
                           }
                           onUpdateCell={handleUpdateCell}
+                          onDeleteRows={handleDeleteRows}
                           className="h-full"
                         />
                       ) : (

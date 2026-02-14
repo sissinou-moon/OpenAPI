@@ -19,6 +19,9 @@ import {
     ToggleLeft,
     ToggleRight,
     Save,
+    Trash2,
+    GripVertical,
+    Settings2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableDef } from '@/lib/database-types';
@@ -31,6 +34,7 @@ interface DataTableProps {
     tableDef?: TableDef | null;
     onPageChange?: (page: number) => void;
     onUpdateCell?: (row: any, column: string, value: any) => Promise<void>;
+    onDeleteRows?: (rows: any[]) => Promise<void>;
     className?: string;
 }
 
@@ -42,6 +46,7 @@ export function DataTable({
     tableDef,
     onPageChange,
     onUpdateCell,
+    onDeleteRows,
     className,
 }: DataTableProps) {
     const [revealedCols, setRevealedCols] = useState<Set<string>>(new Set());
@@ -49,6 +54,12 @@ export function DataTable({
     const [editValue, setEditValue] = useState<any>(null);
     const [isUpdating, setIsUpdating] = useState(false);
     const [jsonEditorOpen, setJsonEditorOpen] = useState(false);
+
+    // New states for column management and selection
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+    const [selectedRowIndices, setSelectedRowIndices] = useState<Set<number>>(new Set());
+    const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
+    const [isResizing, setIsResizing] = useState<string | null>(null);
 
     const toggleReveal = (col: string) => {
         setRevealedCols((prev) => {
@@ -103,6 +114,55 @@ export function DataTable({
 
     const isSensitive = (col: string) => sensitiveColumns.includes(col);
 
+    // ── Resizing Logic ────────────────────────────────────────────────
+    const startResizing = (e: React.MouseEvent, col: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsResizing(col);
+
+        const startX = e.pageX;
+        const startWidth = columnWidths[col] || 150;
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            const newWidth = Math.max(50, startWidth + (moveEvent.pageX - startX));
+            setColumnWidths(prev => ({ ...prev, [col]: newWidth }));
+        };
+
+        const onMouseUp = () => {
+            setIsResizing(null);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    };
+
+    // ── Selection Logic ───────────────────────────────────────────────
+    const toggleSelectAll = () => {
+        if (selectedRowIndices.size === data?.rows.length) {
+            setSelectedRowIndices(new Set());
+        } else {
+            setSelectedRowIndices(new Set(data?.rows.map((_, i) => i)));
+        }
+    };
+
+    const toggleSelectRow = (idx: number) => {
+        const next = new Set(selectedRowIndices);
+        if (next.has(idx)) next.delete(idx);
+        else next.add(idx);
+        setSelectedRowIndices(next);
+    };
+
+    const handleDeleteSelected = async () => {
+        if (!onDeleteRows || selectedRowIndices.size === 0) return;
+        const rowsToDelete = Array.from(selectedRowIndices).map(idx => data!.rows[idx]);
+        await onDeleteRows(rowsToDelete);
+        setSelectedRowIndices(new Set());
+    };
+
+    const visibleColumns = data?.columns.filter(c => !hiddenCols.has(c)) || [];
+
     // Loading skeleton
     if (loading) {
         return (
@@ -132,47 +192,92 @@ export function DataTable({
     return (
         <div className={cn('flex flex-col h-full', className)}>
             {/* Table Header Info */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-neutral-800 bg-neutral-900/50 shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-800 bg-neutral-900/50 shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                        <Database size={13} className="text-emerald-400" />
+                        <span className="text-xs font-semibold text-neutral-300">
+                            {tableName || 'Query Results'}
+                        </span>
+                        <span className="text-[10px] text-neutral-600 px-1.5 py-0.5 rounded bg-neutral-800">
+                            {data.totalCount} rows
+                        </span>
+                    </div>
+
+                    {selectedRowIndices.size > 0 && (
+                        <div className="flex items-center gap-2 pl-3 border-l border-neutral-800">
+                            <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                {selectedRowIndices.size} selected
+                            </span>
+                            <button
+                                onClick={handleDeleteSelected}
+                                className="flex items-center gap-1.5 px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-medium transition-colors border border-red-500/20"
+                            >
+                                <Trash2 size={12} />
+                                Delete Selected
+                            </button>
+                        </div>
+                    )}
+                </div>
+
                 <div className="flex items-center gap-2">
-                    <Database size={13} className="text-emerald-400" />
-                    <span className="text-xs font-semibold text-neutral-300">
-                        {tableName || 'Query Results'}
-                    </span>
-                    <span className="text-[10px] text-neutral-600 px-1.5 py-0.5 rounded bg-neutral-800">
-                        {data.totalCount} rows
-                    </span>
+                    <button
+                        onClick={() => {
+                            const col = prompt('Enter column name to hide:');
+                            if (col && visibleColumns.includes(col)) {
+                                setHiddenCols(prev => new Set(prev).add(col));
+                            }
+                        }}
+                        className="p-1 px-2 rounded hover:bg-neutral-800 text-neutral-500 hover:text-white transition-colors text-[10px] flex items-center gap-1.5"
+                    >
+                        <Settings2 size={12} />
+                        Columns
+                    </button>
                 </div>
             </div>
 
             {/* Scrollable Table */}
             <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-neutral-700">
-                <table className="w-full text-sm border-collapse">
+                <table className="w-full text-sm border-collapse table-fixed">
                     <thead className="sticky top-0 z-10">
                         <tr className="bg-neutral-800/80 backdrop-blur-sm">
-                            <th className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 w-10">
+                            <th className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 w-[40px]">
+                                <input
+                                    type="checkbox"
+                                    checked={data.rows.length > 0 && selectedRowIndices.size === data.rows.length}
+                                    onChange={toggleSelectAll}
+                                    className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                                />
+                            </th>
+                            <th className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 w-[50px]">
                                 #
                             </th>
-                            {data.columns.map((col) => (
+                            {visibleColumns.map((col) => (
                                 <th
                                     key={col}
-                                    className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 whitespace-nowrap"
+                                    style={{ width: columnWidths[col] || 180 }}
+                                    className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 relative group truncate"
                                 >
-                                    <span className="flex items-center gap-1.5">
-                                        {col}
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="truncate">{col}</span>
                                         {isSensitive(col) && (
                                             <button
                                                 onClick={() => toggleReveal(col)}
                                                 className="text-neutral-600 hover:text-neutral-400 transition-colors"
-                                                title={revealedCols.has(col) ? 'Hide values' : 'Reveal values'}
                                             >
-                                                {revealedCols.has(col) ? (
-                                                    <EyeOff size={10} />
-                                                ) : (
-                                                    <Eye size={10} />
-                                                )}
+                                                {revealedCols.has(col) ? <EyeOff size={10} /> : <Eye size={10} />}
                                             </button>
                                         )}
-                                    </span>
+                                    </div>
+
+                                    {/* Resize handle */}
+                                    <div
+                                        onMouseDown={(e) => startResizing(e, col)}
+                                        className={cn(
+                                            "absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 cursor-col-resize rounded-full opacity-0 group-hover:opacity-100 hover:bg-emerald-500/50 transition-all z-20",
+                                            isResizing === col && "opacity-100 bg-emerald-500"
+                                        )}
+                                    />
                                 </th>
                             ))}
                         </tr>
@@ -181,12 +286,23 @@ export function DataTable({
                         {data.rows.map((row, rowIdx) => (
                             <tr
                                 key={rowIdx}
-                                className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors"
+                                className={cn(
+                                    "border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors group",
+                                    selectedRowIndices.has(rowIdx) && "bg-emerald-500/5 hover:bg-emerald-500/10"
+                                )}
                             >
+                                <td className="px-3 py-2 border-r border-neutral-800/20">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedRowIndices.has(rowIdx)}
+                                        onChange={() => toggleSelectRow(rowIdx)}
+                                        className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                </td>
                                 <td className="px-3 py-2 text-[10px] text-neutral-600 font-mono">
                                     {(data.page - 1) * data.pageSize + rowIdx + 1}
                                 </td>
-                                {data.columns.map((col) => {
+                                {visibleColumns.map((col) => {
                                     const value = row[col];
                                     const masked = isSensitive(col) && !revealedCols.has(col);
                                     const isEditing = editingCell?.rowIdx === rowIdx && editingCell?.col === col;
@@ -194,9 +310,10 @@ export function DataTable({
                                     return (
                                         <td
                                             key={col}
+                                            style={{ width: columnWidths[col] || 180 }}
                                             onDoubleClick={() => !isEditing && handleStartEdit(rowIdx, col, value)}
                                             className={cn(
-                                                "px-3 py-2 text-xs text-neutral-300 font-mono whitespace-nowrap max-w-[250px] truncate cursor-default group",
+                                                "px-3 py-2 text-xs text-neutral-300 font-mono whitespace-nowrap truncate cursor-default relative",
                                                 isEditing && "bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/50"
                                             )}
                                         >
