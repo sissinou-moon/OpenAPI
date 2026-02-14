@@ -309,6 +309,58 @@ export default function Home() {
     }
   }, [connection, updateActiveTab]);
 
+  const handleUpdateCell = useCallback(async (row: any, column: string, newValue: any) => {
+    if (!connection || !activeTabState?.tab.tableName) return;
+
+    const tableName = activeTabState.tab.tableName;
+    const tableDef = dbSchema?.tables[tableName];
+
+    // Find primary key
+    let primaryKey = '';
+    if (tableDef) {
+      for (const [colName, colDef] of Object.entries(tableDef.columns)) {
+        if (colDef.primary_key) {
+          primaryKey = colName;
+          break;
+        }
+      }
+    }
+
+    if (!primaryKey) {
+      if (row._id !== undefined) primaryKey = '_id';
+      else if (row.id !== undefined) primaryKey = 'id';
+      else if (row.uuid !== undefined) primaryKey = 'uuid';
+      else primaryKey = Object.keys(row)[0];
+    }
+
+    const primaryKeyValue = row[primaryKey];
+
+    try {
+      const res = await fetch('/api/db-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connection,
+          tableName,
+          primaryKey,
+          primaryKeyValue,
+          column,
+          newValue,
+        }),
+      });
+
+      const result = await res.json();
+      if (result.error) {
+        alert('Update error: ' + result.error);
+      } else {
+        // Refresh data
+        fetchTableData(tableName, activeTabState.queryResult?.page || 1);
+      }
+    } catch (err) {
+      console.error('Update fetch error:', err);
+    }
+  }, [connection, activeTabState, dbSchema, fetchTableData]);
+
   // Derived state for rendering
   const activeOperation = activeTabState && spec && activeTabState.tab.type === 'api' && activeTabState.tab.path && activeTabState.tab.method
     ? spec.paths[activeTabState.tab.path]?.[activeTabState.tab.method] as Operation | undefined
@@ -496,9 +548,11 @@ export default function Home() {
                               : []
                           }
                           tableName={activeTabState.tab.tableName}
+                          tableDef={currentTableDef}
                           onPageChange={(page) =>
                             activeTabState.tab.tableName && fetchTableData(activeTabState.tab.tableName, page)
                           }
+                          onUpdateCell={handleUpdateCell}
                           className="h-full"
                         />
                       ) : (
