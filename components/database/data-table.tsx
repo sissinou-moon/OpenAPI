@@ -26,6 +26,40 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableDef } from '@/lib/database-types';
 
+interface CheckboxProps {
+    checked: boolean;
+    onChange: () => void;
+    className?: string;
+}
+
+function CustomCheckbox({ checked, onChange, className }: CheckboxProps) {
+    return (
+        <div
+            onClick={(e) => {
+                e.stopPropagation();
+                onChange();
+            }}
+            className={cn(
+                "w-4 h-4 rounded border transition-all flex items-center justify-center cursor-pointer select-none shrink-0",
+                checked
+                    ? "bg-emerald-600 border-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+                    : "bg-neutral-900 border-neutral-700 hover:border-neutral-500",
+                className
+            )}
+        >
+            {checked && (
+                <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="text-white"
+                >
+                    <Check size={10} strokeWidth={4} />
+                </motion.div>
+            )}
+        </div>
+    );
+}
+
 interface DataTableProps {
     data: QueryResult | null;
     loading: boolean;
@@ -242,11 +276,9 @@ export function DataTable({
                     <thead className="sticky top-0 z-10">
                         <tr className="bg-neutral-800/80 backdrop-blur-sm">
                             <th className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 w-[40px]">
-                                <input
-                                    type="checkbox"
+                                <CustomCheckbox
                                     checked={data.rows.length > 0 && selectedRowIndices.size === data.rows.length}
                                     onChange={toggleSelectAll}
-                                    className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
                                 />
                             </th>
                             <th className="px-3 py-2 text-left text-[10px] font-semibold text-neutral-500 uppercase tracking-wider border-b border-neutral-700 w-[50px]">
@@ -290,13 +322,12 @@ export function DataTable({
                                     "border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors group",
                                     selectedRowIndices.has(rowIdx) && "bg-emerald-500/5 hover:bg-emerald-500/10"
                                 )}
+                                onClick={() => toggleSelectRow(rowIdx)}
                             >
                                 <td className="px-3 py-2 border-r border-neutral-800/20">
-                                    <input
-                                        type="checkbox"
+                                    <CustomCheckbox
                                         checked={selectedRowIndices.has(rowIdx)}
                                         onChange={() => toggleSelectRow(rowIdx)}
-                                        className="rounded border-neutral-700 bg-neutral-900 text-emerald-500 focus:ring-emerald-500 cursor-pointer"
                                     />
                                 </td>
                                 <td className="px-3 py-2 text-[10px] text-neutral-600 font-mono">
