@@ -1,188 +1,354 @@
 openapi: 3.0.3
 info:
-  title: Authentication API
-  description: API for user registration, login, OTP, and session management.
+  title: Prestige+ Loyalty API
+  description: >
+    Comprehensive API for Prestige+ US Rewards application. 
+    Handles authentication (OTP, Phone, Email), multi-tenant partner management, 
+    QR code based loyalty logic (Earn/Redeem), Stripe subscriptions, and POS integration (Square/Clover).
   version: 1.0.0
 
 servers:
-  - url: /auth
-    description: Auth Route Root
+  - url: http://localhost:3000/api
+    description: Local development server
+  - url: https://api.prestigeplusrewards.com/api
+    description: Production server
 
 tags:
   - name: Authentication
-    description: All authentication-related endpoints
+    description: Registration, verification, login, and password management.
+  - name: User
+    description: User profiles, balances, and gift operations.
+  - name: Partners
+    description: Management of business partners (owners) and their details.
+  - name: Branches
+    description: Physical locations associated with partners.
+  - name: QR Codes
+    description: Loyalty interaction points for earning and redeeming rewards.
+  - name: Subscriptions
+    description: Stripe-based plan management and billing.
+  - name: POS
+    description: Integrations with Square and Clover point-of-sale systems.
+  - name: Database
+    description: Public and semi-private data retrieval for UI.
+  - name: Schedule
+    description: Manual triggers for automated cron jobs.
 
 paths:
-  /sign-up:
+  # === AUTHENTICATION ===
+  /auth/email/register:
     post:
       tags: [Authentication]
-      summary: User registration
+      summary: Register a new member/partner via email
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required: [email, password, full_name, phone, country]
               properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                device_name:
-                  type: string
-                user_agent:
-                  type: string
-                os:
-                  type: string
-                ip:
-                  type: string
-                type:
-                  type: string
+                email: { type: string, format: email }
+                password: { type: string }
+                full_name: { type: string }
+                phone: { type: string }
+                country: { type: string }
+                referral_code: { type: string }
+                birthday: { type: string }
+                role: { type: string, enum: [MEMBER, OWNER, ADMIN, CASHIER] }
+                partner_branch_id: { type: string }
       responses:
-        '200':
-          description: User created successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: User Created Successfully!
-                data:
-                  refresh_token: "..."
-                  access_token: "..."
-                  user: {}
-        '403':
-          description: Missing email or password
-        '406':
-          description: User already exists
+        '201':
+          description: Created. OTP sent to email.
+        '400':
+          description: Missing fields.
 
-  /sign-in:
+  /auth/email/verify:
     post:
       tags: [Authentication]
-      summary: User login
+      summary: Verify email OTP login
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required: [email, otp]
               properties:
-                email:
-                  type: string
-                password:
-                  type: string
+                email: { type: string }
+                otp: { type: string }
       responses:
         '200':
-          description: Login successful
-        '404':
-          description: User not found
-        '405':
-          description: Invalid password
-        '420':
-          description: Device not trusted
-        '421':
-          description: No active session
+          description: Success. Returns JWT and user data.
 
-  /send-otp:
+  /auth/login:
     post:
       tags: [Authentication]
-      summary: Send OTP for verification
+      summary: Multi-mode login (Email/Phone/Token)
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, user_id]
               properties:
-                email:
-                  type: string
-                user_id:
-                  type: string
+                email: { type: string }
+                password: { type: string }
+                phone: { type: string }
+                isEmail: { type: boolean }
+                token: { type: string, description: "Supabase Auth Token" }
       responses:
         '200':
-          description: OTP sent successfully
-        '403':
-          description: Missing data
-        '500':
-          description: Failed to send OTP
+          description: Login successful.
 
-  /verify-otp:
+  /auth/phone/login:
     post:
       tags: [Authentication]
-      summary: Verify the sent OTP
+      summary: Register/Login via phone number
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, user_id, otp]
+              required: [phone, password, full_name, email, country]
               properties:
-                email:
-                  type: string
-                user_id:
-                  type: string
-                otp:
-                  type: string
+                phone: { type: string }
+                password: { type: string }
+                full_name: { type: string }
+                email: { type: string }
+                country: { type: string }
       responses:
-        '200':
-          description: OTP verified successfully
-        '403':
-          description: Missing data
-        '500':
-          description: OTP expired or verification failed
+        '201':
+          description: Success. OTP sent via SMS.
 
-  /session-device:
+  /auth/sync:
     post:
       tags: [Authentication]
-      summary: Create or update session for a specific device
+      summary: Sync Supabase user to local DB
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, device_name, os, user_id, ip]
+              required: [supabase_user_id, email]
               properties:
-                email:
-                  type: string
-                device_name:
-                  type: string
-                user_agent:
-                  type: string
-                os:
-                  type: string
-                user_id:
-                  type: string
-                ip:
-                  type: string
-                type:
-                  type: string
+                supabase_user_id: { type: string }
+                email: { type: string }
+                full_name: { type: string }
       responses:
         '200':
-          description: Device session set or updated successfully
-        '403':
-          description: Missing required data
+          description: User synced.
 
-  /check:
+  # === USER ===
+  /user/profile:
+    get:
+      tags: [User]
+      summary: Get user profile
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: "User profile data" }
+    put:
+      tags: [User]
+      summary: Update user profile
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name: { type: string }
+                country: { type: string }
+                address: { type: string }
+                birthday: { type: string }
+      responses:
+        '200': { description: "Updated" }
+
+  /user/balance:
+    get:
+      tags: [User]
+      summary: Get points balance and tier info
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: "Balance data" }
+
+  /user/activity:
+    get:
+      tags: [User]
+      summary: Get transaction and redemption history
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        '200': { description: "Activity history" }
+
+  /user/send-points:
     post:
-      tags: [Authentication]
-      summary: Validate a refresh token
+      tags: [User]
+      summary: Transfer points to another user
+      security: [{ BearerAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [refresh_token]
+              required: [receiver_id, points]
               properties:
-                refresh_token:
-                  type: string
+                receiver_id: { type: string }
+                points: { type: number }
       responses:
-        '200':
-          description: Refresh token is valid
-        '500':
-          description: Refresh token is invalid or expired
+        '200': { description: "Points transferred" }
+
+  # === PARTNERS ===
+  /partners:
+    get:
+      tags: [Partners]
+      summary: List all partners with filters
+      responses:
+        '200': { description: "List of partners" }
+    post:
+      tags: [Partners]
+      summary: Create a new partner (Owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [business_name, email, phone]
+              properties:
+                business_name: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                category: { type: string }
+      responses:
+        '201': { description: "Partner created" }
+
+  /partners/owner/{userId}:
+    get:
+      tags: [Partners]
+      summary: Get partner details for a specific owner
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: "Partner data" }
+
+  /partners/upload-partner-logo:
+    post:
+      tags: [Partners]
+      summary: Upload partner logo image
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, partner_id]
+              properties:
+                file: { type: string, format: binary }
+                partner_id: { type: string }
+      responses:
+        '200': { description: "Logo uploaded" }
+
+  # === QR CODES ===
+  /qr/generate/earn:
+    post:
+      tags: [QR Codes]
+      summary: Create QR for earning points
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: "QR ID returned" }
+
+  /qr/scan/redeem:
+    post:
+      tags: [QR Codes]
+      summary: Validate and process a reward redemption QR
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qr_id]
+              properties:
+                qr_id: { type: string }
+                phone: { type: string, description: "Manual entry fallback" }
+                isPhoneNumber: { type: boolean }
+      responses:
+        '200': { description: "Redemption processed" }
+
+  # === SUBSCRIPTIONS ===
+  /subscriptions/save-new-subscription:
+    put:
+      tags: [Subscriptions]
+      summary: Link Stripe subscription to user
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, subscription_id, plan]
+              properties:
+                user_id: { type: string }
+                subscription_id: { type: string }
+                plan: { type: string }
+                status: { type: string }
+      responses:
+        '200': { description: "Subscriber status updated" }
+
+  # === POS INTEGRATION ===
+  /pos/oauth/start:
+    get:
+      tags: [POS]
+      summary: Initiate OAuth flow for Square or Clover
+      parameters:
+        - name: partner_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: provider
+          in: query
+          required: true
+          schema: { type: string, enum: [SQUARE, CLOVER] }
+      responses:
+        '302': { description: "Redirect to POS auth provider" }
+
+  # === DATABASE UTILS ===
+  /db/get/rewards:
+    get:
+      tags: [Database]
+      summary: Fetch all available rewards
+      responses:
+        '200': { description: "List of reward objects" }
+
+  /db/get/transactions:
+    get:
+      tags: [Database]
+      summary: Admin/Owner view of global transactions
+      responses:
+        '200': { description: "Transaction logs" }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Reward:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        points_cost: { type: number }
+        image_url: { type: string }

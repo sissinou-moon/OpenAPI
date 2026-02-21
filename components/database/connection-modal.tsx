@@ -27,6 +27,7 @@ interface ConnectionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConnect: (config: ConnectionConfig) => void;
+    initialConfig?: ConnectionConfig | null;
 }
 
 function PasswordInput({
@@ -130,15 +131,17 @@ function ToggleInput({
 
 function PostgresForm({
     onSubmit,
+    initial,
 }: {
     onSubmit: (c: PostgresConnection) => void;
+    initial?: PostgresConnection;
 }) {
-    const [host, setHost] = useState('localhost');
-    const [port, setPort] = useState('5432');
-    const [database, setDatabase] = useState('');
-    const [username, setUsername] = useState('postgres');
-    const [password, setPassword] = useState('');
-    const [ssl, setSsl] = useState(false);
+    const [host, setHost] = useState(initial?.host || 'localhost');
+    const [port, setPort] = useState(initial?.port?.toString() || '5432');
+    const [database, setDatabase] = useState(initial?.database || '');
+    const [username, setUsername] = useState(initial?.username || 'postgres');
+    const [password, setPassword] = useState(initial?.password || '');
+    const [ssl, setSsl] = useState(initial?.ssl || false);
 
     return (
         <form
@@ -175,13 +178,19 @@ function PostgresForm({
     );
 }
 
-function MySQLForm({ onSubmit }: { onSubmit: (c: MySQLConnection) => void }) {
-    const [host, setHost] = useState('localhost');
-    const [port, setPort] = useState('3306');
-    const [database, setDatabase] = useState('');
-    const [username, setUsername] = useState('root');
-    const [password, setPassword] = useState('');
-    const [ssl, setSsl] = useState(false);
+function MySQLForm({
+    onSubmit,
+    initial,
+}: {
+    onSubmit: (c: MySQLConnection) => void;
+    initial?: MySQLConnection;
+}) {
+    const [host, setHost] = useState(initial?.host || 'localhost');
+    const [port, setPort] = useState(initial?.port?.toString() || '3306');
+    const [database, setDatabase] = useState(initial?.database || '');
+    const [username, setUsername] = useState(initial?.username || 'root');
+    const [password, setPassword] = useState(initial?.password || '');
+    const [ssl, setSsl] = useState(initial?.ssl || false);
 
     return (
         <form
@@ -220,12 +229,14 @@ function MySQLForm({ onSubmit }: { onSubmit: (c: MySQLConnection) => void }) {
 
 function SupabaseForm({
     onSubmit,
+    initial,
 }: {
     onSubmit: (c: SupabaseConnection) => void;
+    initial?: SupabaseConnection;
 }) {
-    const [projectUrl, setProjectUrl] = useState('');
-    const [anonKey, setAnonKey] = useState('');
-    const [serviceRoleKey, setServiceRoleKey] = useState('');
+    const [projectUrl, setProjectUrl] = useState(initial?.projectUrl || '');
+    const [anonKey, setAnonKey] = useState(initial?.anonKey || '');
+    const [serviceRoleKey, setServiceRoleKey] = useState(initial?.serviceRoleKey || '');
 
     return (
         <form
@@ -270,12 +281,14 @@ function SupabaseForm({
 
 function FirebaseForm({
     onSubmit,
+    initial,
 }: {
     onSubmit: (c: FirebaseConnection) => void;
+    initial?: FirebaseConnection;
 }) {
-    const [projectId, setProjectId] = useState('');
-    const [apiKey, setApiKey] = useState('');
-    const [databaseUrl, setDatabaseUrl] = useState('');
+    const [projectId, setProjectId] = useState(initial?.projectId || '');
+    const [apiKey, setApiKey] = useState(initial?.apiKey || '');
+    const [databaseUrl, setDatabaseUrl] = useState(initial?.databaseUrl || '');
 
     return (
         <form
@@ -320,8 +333,11 @@ export function ConnectionModal({
     isOpen,
     onClose,
     onConnect,
+    initialConfig,
 }: ConnectionModalProps) {
-    const [selectedProvider, setSelectedProvider] = useState<DatabaseProvider | null>(null);
+    const [selectedProvider, setSelectedProvider] = useState<DatabaseProvider | null>(
+        initialConfig?.provider || null
+    );
 
     if (!isOpen) return null;
 
@@ -390,16 +406,28 @@ export function ConnectionModal({
                         /* Provider-Specific Form */
                         <div>
                             {selectedProvider === 'postgresql' && (
-                                <PostgresForm onSubmit={onConnect} />
+                                <PostgresForm
+                                    onSubmit={onConnect}
+                                    initial={initialConfig?.provider === 'postgresql' ? initialConfig : undefined}
+                                />
                             )}
                             {selectedProvider === 'mysql' && (
-                                <MySQLForm onSubmit={onConnect} />
+                                <MySQLForm
+                                    onSubmit={onConnect}
+                                    initial={initialConfig?.provider === 'mysql' ? initialConfig : undefined}
+                                />
                             )}
                             {selectedProvider === 'supabase' && (
-                                <SupabaseForm onSubmit={onConnect} />
+                                <SupabaseForm
+                                    onSubmit={onConnect}
+                                    initial={initialConfig?.provider === 'supabase' ? initialConfig : undefined}
+                                />
                             )}
                             {selectedProvider === 'firebase' && (
-                                <FirebaseForm onSubmit={onConnect} />
+                                <FirebaseForm
+                                    onSubmit={onConnect}
+                                    initial={initialConfig?.provider === 'firebase' ? initialConfig : undefined}
+                                />
                             )}
                         </div>
                     )}
@@ -409,7 +437,7 @@ export function ConnectionModal({
                 <div className="px-5 py-3 border-t border-neutral-800 bg-neutral-900/50">
                     <p className="text-[10px] text-neutral-600 flex items-center gap-1.5">
                         <Shield size={10} />
-                        Credentials are used for this session only and never stored or transmitted to third parties.
+                        Credentials are saved to local storage for persistence across refreshes.
                     </p>
                 </div>
             </div>

@@ -65,13 +65,76 @@ export default function Home() {
   const [connection, setConnection] = useState<ConnectionConfig | null>(null);
   const [connected, setConnected] = useState(false);
 
-  // Load sample on mount
+  // Persistence: Load on mount
   useEffect(() => {
-    const parsed = parseOpenABI(SAMPLE_YAML);
-    if (parsed) {
-      setSpec(parsed);
+    const savedSpec = localStorage.getItem('op-spec');
+    const savedDbSchema = localStorage.getItem('op-db-schema');
+    const savedTabs = localStorage.getItem('op-tabs');
+    const savedActiveTabId = localStorage.getItem('op-active-tab-id');
+    const savedConnection = localStorage.getItem('op-connection');
+    const savedConnected = localStorage.getItem('op-connected');
+
+    if (savedSpec) {
+      try {
+        setSpec(JSON.parse(savedSpec));
+      } catch (e) {
+        console.error('Failed to parse saved spec', e);
+      }
+    } else {
+      // Default to sample if no saved spec
+      const parsed = parseOpenABI(SAMPLE_YAML);
+      if (parsed) setSpec(parsed);
+    }
+
+    if (savedDbSchema) {
+      try {
+        setDbSchema(JSON.parse(savedDbSchema));
+      } catch (e) {
+        console.error('Failed to parse saved db schema', e);
+      }
+    }
+
+    if (savedTabs) {
+      try {
+        const parsed = JSON.parse(savedTabs);
+        setTabs(parsed.map((t: any) => ({ ...t, dataLoading: false })));
+      } catch (e) {
+        console.error('Failed to parse saved tabs', e);
+      }
+    }
+
+    if (savedActiveTabId) {
+      setActiveTabId(savedActiveTabId);
+    }
+
+    if (savedConnection) {
+      try {
+        setConnection(JSON.parse(savedConnection));
+      } catch (e) {
+        console.error('Failed to parse saved connection', e);
+      }
+    }
+
+    if (savedConnected === 'true') {
+      setConnected(true);
     }
   }, []);
+
+  // Persistence: Save on changes
+  useEffect(() => {
+    if (spec) localStorage.setItem('op-spec', JSON.stringify(spec));
+    if (dbSchema) localStorage.setItem('op-db-schema', JSON.stringify(dbSchema));
+    if (tabs.length > 0) localStorage.setItem('op-tabs', JSON.stringify(tabs));
+    else localStorage.removeItem('op-tabs');
+
+    if (activeTabId) localStorage.setItem('op-active-tab-id', activeTabId);
+    else localStorage.removeItem('op-active-tab-id');
+
+    if (connection) localStorage.setItem('op-connection', JSON.stringify(connection));
+    else localStorage.removeItem('op-connection');
+
+    localStorage.setItem('op-connected', connected.toString());
+  }, [spec, dbSchema, tabs, activeTabId, connection, connected]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -666,6 +729,7 @@ export default function Home() {
         isOpen={showConnectionModal}
         onClose={() => setShowConnectionModal(false)}
         onConnect={handleConnect}
+        initialConfig={connection}
       />
     </div>
   );
