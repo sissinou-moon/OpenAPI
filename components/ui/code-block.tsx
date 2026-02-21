@@ -20,8 +20,8 @@ export function CodeBlock({ code, className }: CodeBlockProps) {
     };
 
     return (
-        <div className={cn("relative group rounded-md overflow-hidden bg-neutral-950 border border-neutral-800", className)}>
-            <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={cn("relative group rounded-md overflow-hidden bg-neutral-950 border border-neutral-800 h-full flex flex-col", className)}>
+            <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <button
                     onClick={handleCopy}
                     className="p-1.5 rounded-md bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-colors"
@@ -29,7 +29,7 @@ export function CodeBlock({ code, className }: CodeBlockProps) {
                     {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                 </button>
             </div>
-            <pre className="p-4 overflow-x-auto text-sm font-mono text-neutral-300 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
+            <pre className="p-4 flex-1 overflow-auto text-sm font-mono text-neutral-300 scrollbar-thin scrollbar-thumb-neutral-700 scrollbar-track-transparent">
                 <code>{code}</code>
             </pre>
         </div>

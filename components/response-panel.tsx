@@ -50,7 +50,7 @@ export function ResponsePanel({ exampleResponse, liveResponse, loading, classNam
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 overflow-hidden">
                 {liveResponse?.error ? (
                     <div className="p-4 text-red-400 text-sm">
                         <p className="font-medium mb-1">Error</p>
