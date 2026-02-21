@@ -2,16 +2,12 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Operation, Schema } from '@/lib/openapi';
+import { Operation, Schema, BodyRow } from '@/lib/openapi';
 import { CodeBlock } from '@/components/ui/code-block';
 import { generateCurl, generateNode } from '@/lib/code-generator';
 import { Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 
-interface BodyRow {
-    key: string;
-    value: string;
-    enabled: boolean;
-}
+
 
 interface RequestPanelProps {
     operation: Operation | null;
@@ -48,12 +44,12 @@ export function RequestPanel({
     }
 
     const addRow = () => {
-        onBodyRowsChange([...bodyRows, { key: '', value: '', enabled: true }]);
+        onBodyRowsChange([...bodyRows, { key: '', value: '', type: 'string', enabled: true }]);
     };
 
-    const updateRow = (index: number, field: 'key' | 'value' | 'enabled', value: string | boolean) => {
+    const updateRow = (index: number, field: keyof BodyRow, value: string | boolean) => {
         const updated = [...bodyRows];
-        updated[index] = { ...updated[index], [field]: value };
+        updated[index] = { ...updated[index], [field]: value } as BodyRow;
         onBodyRowsChange(updated);
     };
 
@@ -64,7 +60,19 @@ export function RequestPanel({
     // Generate body object from rows
     const bodyObject: Record<string, any> = {};
     bodyRows.filter(r => r.enabled && r.key).forEach(r => {
-        bodyObject[r.key] = r.value;
+        let val: any = r.value;
+        if (r.type === 'number') {
+            val = Number(r.value);
+        } else if (r.type === 'boolean') {
+            val = r.value.toLowerCase() === 'true';
+        } else if (r.type === 'json') {
+            try {
+                val = JSON.parse(r.value);
+            } catch (e) {
+                val = r.value; // Fallback to string
+            }
+        }
+        bodyObject[r.key] = val;
     });
 
     const fullUrl = baseUrl.startsWith('http') ? baseUrl + path : 'http://localhost:3000' + baseUrl + path;
@@ -133,6 +141,7 @@ export function RequestPanel({
                                 <tr className="text-neutral-500 text-left">
                                     <th className="pb-2 w-8"></th>
                                     <th className="pb-2 font-medium">Key</th>
+                                    <th className="pb-2 font-medium">Type</th>
                                     <th className="pb-2 font-medium">Value</th>
                                     <th className="pb-2 w-8"></th>
                                 </tr>
@@ -158,11 +167,23 @@ export function RequestPanel({
                                             />
                                         </td>
                                         <td className="py-1 pr-2">
+                                            <select
+                                                value={row.type}
+                                                onChange={(e) => updateRow(i, 'type', e.target.value)}
+                                                className="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1.5 text-[10px] text-neutral-400 focus:border-emerald-500 focus:outline-none appearance-none"
+                                            >
+                                                <option value="string">String</option>
+                                                <option value="number">Number</option>
+                                                <option value="boolean">Boolean</option>
+                                                <option value="json">JSON/Array</option>
+                                            </select>
+                                        </td>
+                                        <td className="py-1 pr-2">
                                             <input
                                                 type="text"
                                                 value={row.value}
                                                 onChange={(e) => updateRow(i, 'value', e.target.value)}
-                                                placeholder="value"
+                                                placeholder={row.type === 'json' ? '[1, 2, 3]' : 'value'}
                                                 className="w-full bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-neutral-300 focus:border-emerald-500 focus:outline-none"
                                             />
                                         </td>

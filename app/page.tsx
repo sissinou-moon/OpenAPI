@@ -9,7 +9,7 @@ import { UrlBar } from '@/components/url-bar';
 import { RequestPanel } from '@/components/request-panel';
 import { ResponsePanel } from '@/components/response-panel';
 import { parseOpenABI } from '@/lib/parser';
-import { OpenAPISpec, Operation } from '@/lib/openapi';
+import { OpenAPISpec, Operation, BodyRow } from '@/lib/openapi';
 import { SAMPLE_YAML } from '@/lib/sample';
 import { Upload, Database, Plug, PlugZap, X } from 'lucide-react';
 
@@ -25,11 +25,7 @@ import { RelationsView } from '@/components/database/relations-view';
 import { ConnectionModal } from '@/components/database/connection-modal';
 import { DataTable } from '@/components/database/data-table';
 
-interface BodyRow {
-  key: string;
-  value: string;
-  enabled: boolean;
-}
+
 
 interface TabState {
   tab: Tab;
@@ -97,7 +93,16 @@ export default function Home() {
     if (savedTabs) {
       try {
         const parsed = JSON.parse(savedTabs);
-        setTabs(parsed.map((t: any) => ({ ...t, dataLoading: false })));
+        // Migration: ensure every body row has a type
+        const migrated = parsed.map((t: any) => ({
+          ...t,
+          dataLoading: false,
+          bodyRows: t.bodyRows?.map((r: any) => ({
+            ...r,
+            type: r.type || 'string'
+          }))
+        }));
+        setTabs(migrated);
       } catch (e) {
         console.error('Failed to parse saved tabs', e);
       }
@@ -198,10 +203,16 @@ export default function Home() {
     const reqBody = operation.requestBody?.content?.['application/json'];
     if (reqBody?.schema?.properties) {
       const required = reqBody.schema.required || [];
-      Object.entries(reqBody.schema.properties).forEach(([key, schema]) => {
+      Object.entries(reqBody.schema.properties).forEach(([key, schema]: [string, any]) => {
+        let type: BodyRow['type'] = 'string';
+        if (schema.type === 'number' || schema.type === 'integer') type = 'number';
+        if (schema.type === 'boolean') type = 'boolean';
+        if (schema.type === 'array' || schema.type === 'object') type = 'json';
+
         bodyRows.push({
           key,
-          value: (schema as any).example || '',
+          value: schema.example !== undefined ? (typeof schema.example === 'object' ? JSON.stringify(schema.example) : String(schema.example)) : '',
+          type,
           enabled: required.includes(key)
         });
       });
@@ -293,7 +304,22 @@ export default function Home() {
     const bodyObject: Record<string, any> = {};
     activeTabState.bodyRows
       ?.filter(r => r.enabled && r.key)
-      .forEach(r => { bodyObject[r.key] = r.value; });
+      .forEach(r => {
+        let val: any = r.value;
+        if (r.type === 'number') {
+          val = Number(r.value);
+        } else if (r.type === 'boolean') {
+          val = r.value.toLowerCase() === 'true';
+        } else if (r.type === 'json') {
+          try {
+            val = JSON.parse(r.value);
+          } catch (e) {
+            console.error('Failed to parse JSON value for key:', r.key, e);
+            // Keep as string if parsing fails? Or maybe alert user?
+          }
+        }
+        bodyObject[r.key] = val;
+      });
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (activeTabState.bearerToken) {

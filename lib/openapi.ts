@@ -109,3 +109,10 @@ export interface Response {
     };
     links?: Record<string, any>;
 }
+
+export interface BodyRow {
+    key: string;
+    value: string;
+    type: 'string' | 'number' | 'boolean' | 'json';
+    enabled: boolean;
+}
